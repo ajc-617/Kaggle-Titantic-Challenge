@@ -1,11 +1,13 @@
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import train_test_split, KFold
+from sklearn import preprocessing
 import csv
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import graphviz
+import random
 
 def tree_classify():
     pandas_frame = pd.read_csv('train.csv')
@@ -98,57 +100,66 @@ def nn_classify():
     inputs = pre_process_data(inputs)
 
     X = inputs.to_numpy()
+    scaler = preprocessing.StandardScaler().fit(X)
+    X = scaler.transform(X)
     Y = labels.to_numpy()
 
     #hopefully all of these are valid layer sizes
-    possible_layer_sizes = list(range(200,1000))
+    possible_layer_sizes = list(range(4, 9))
+    possible_batch_sizes = list((range(50,200,4)))
     cur_best_layer_size = None
     cur_best_average_accuracy = -1
+    cur_best_batch_size = None
 
-    kFold=KFold(n_splits=10,random_state=10,shuffle=True)
+    kFold=KFold(n_splits=13, shuffle=True)
     for layer_size in possible_layer_sizes:
-        print(layer_size)
-        cur_accuracies = []
-        for train_index,test_index in kFold.split(X):
+        for batch_size in possible_batch_sizes:
+            print(layer_size)
+            print(batch_size)
+            cur_accuracies = []
+            for train_index,test_index in kFold.split(X):
 
-            X_train, X_valid, Y_train, Y_valid = X[train_index], X[test_index], Y[train_index], Y[test_index]
+                X_train, X_valid, Y_train, Y_valid = X[train_index], X[test_index], Y[train_index], Y[test_index]
 
-            #clf = MLPClassifier(hidden_layer_sizes=np.asarray([layer_size]))
-            clf = MLPClassifier(hidden_layer_sizes=np.asarray([layer_size]), max_iter=200, early_stopping=True, random_state=10)
-            clf = clf.fit(X_train, Y_train)
-            #print(clf.n_iter_)
+                #4 has been the best layer size so far
+                #random_state=random.randint(0, 2**32-1)
+                clf = MLPClassifier(hidden_layer_sizes=np.asarray([layer_size]), solver="adam", max_iter=2000,alpha=0.1, random_state=0, batch_size=batch_size, learning_rate_init=0.001)
+                clf = clf.fit(X_train, Y_train)
 
-            predictions = clf.predict(X_valid)
-            correct = 0
-            incorrect = 0
-            for index, prediction in enumerate(predictions):
-                if prediction == Y_valid[index]:
-                    correct += 1
-                else:
-                    incorrect += 1
-            
-            cur_accuracy = float(correct/(correct+incorrect))
-            cur_accuracies.append(cur_accuracy)
-        #print(np.mean(np.array(cur_accuracies)))
-        if np.mean(np.array(cur_accuracies)) > cur_best_average_accuracy:
-            cur_best_average_accuracy = np.mean(np.array(cur_accuracies))
-            cur_best_layer_size = layer_size
+                predictions = clf.predict(X_valid)
+                correct = 0
+                incorrect = 0
+                for index, prediction in enumerate(predictions):
+                    if prediction == Y_valid[index]:
+                        correct += 1
+                    else:
+                        incorrect += 1
+                cur_accuracy = float(correct/(correct+incorrect))
+                cur_accuracies.append(cur_accuracy)
+            print(np.mean(np.array(cur_accuracies)))
+            if np.mean(np.array(cur_accuracies)) > cur_best_average_accuracy:
+                cur_best_average_accuracy = np.mean(np.array(cur_accuracies))
+                cur_best_layer_size = layer_size
+                cur_best_batch_size = batch_size
 
     print("Got to here")
     testing_frame = pre_process_data(pd.read_csv('test.csv').drop(columns=['Name']))
 
-    clf = MLPClassifier(hidden_layer_sizes=np.asarray([cur_best_layer_size]))
+    clf = MLPClassifier(hidden_layer_sizes=np.asarray([cur_best_layer_size]), solver="adam", max_iter=2000,alpha=0.1, random_state=0, batch_size=cur_best_batch_size, learning_rate_init=0.001)
     clf = clf.fit(X, Y)
 
-    X = testing_frame.to_numpy() 
+    X = testing_frame.to_numpy()
+    #152 passenger in testing set doesn't have a far so just give them the average fare among others in the testing set
+    X[152][6] = 35.6271884892086 
 
     predictions = clf.predict(X)
 
     passengers = pd.read_csv('test.csv')['PassengerId']
     predictions = pd.Series(predictions, name="Survived")
     final_frame = pd.concat([passengers, predictions], axis=1)
-    final_frame.to_csv("predictions_tree.csv", index=False)
+    final_frame.to_csv("predictions_nn.csv", index=False)
     print(cur_best_layer_size)
+    print(cur_best_batch_size)
     print(cur_best_average_accuracy)
     
 
