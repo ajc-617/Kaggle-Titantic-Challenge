@@ -150,7 +150,9 @@ def nn_classify():
 
     X = testing_frame.to_numpy()
     #152 passenger in testing set doesn't have a far so just give them the average fare among others in the testing set
-    X[152][6] = 35.6271884892086 
+    X[152][6] = 35.6271884892086
+    scaler = preprocessing.StandardScaler().fit(X)
+    X = scaler.transform(X)
 
     predictions = clf.predict(X)
 
@@ -164,7 +166,6 @@ def nn_classify():
     
 
 def kernel_classify():
-    pass
         
 
 def center(X):
