@@ -1,6 +1,7 @@
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import train_test_split, KFold
+from sklearn.svm import SVC, LinearSVC
 import csv
 import numpy as np
 import pandas as pd
@@ -101,7 +102,7 @@ def nn_classify():
     Y = labels.to_numpy()
 
     #hopefully all of these are valid layer sizes
-    possible_layer_sizes = list(range(200,1000))
+    possible_layer_sizes = list(range(4,9))
     cur_best_layer_size = None
     cur_best_average_accuracy = -1
 
@@ -153,8 +154,78 @@ def nn_classify():
     
 
 def kernel_classify():
-    pass
+    pandas_frame = pd.read_csv('train.csv')
+    #Assuming that name has no impact on whether person survived or not
+    #Is there even as way to turn names into features? IDK
+    pandas_frame = pandas_frame.drop(columns=['Name'])
+    labels = pandas_frame['Survived']
+    #we can drop survived because we're already separated it into its own column
+    inputs = pandas_frame.drop(columns=['Survived'])
+
+    inputs = pre_process_data(inputs)
+
+    X = inputs.to_numpy()
+    Y = labels.to_numpy()
+    
+    decision_function_shapes = ["ovo", "ovr"]
+    kernels = ["linear", "poly", "rbf", "sigmoid"]
+
+    possible_reg_params = list(range(1,11))
+
+    cur_best_dfs = None
+    cur_best_kernel = None
+    cur_best_reg_param = None
+    cur_best_average_accuracy = -1
+
+    kFold=KFold(n_splits=6,random_state=10,shuffle=True)
+    for dfs in decision_function_shapes:
+        for kernel in kernels:
+            for reg_param in possible_reg_params:
+            
+                cur_accuracies = []
+                for train_index,test_index in kFold.split(X):
         
+                    X_train, X_valid, Y_train, Y_valid = X[train_index], X[test_index], Y[train_index], Y[test_index]
+                    #X_train, X_valid, Y_train, Y_valid = train_test_split(X, Y, test_size=0.2)
+
+                    clf = SVC(C=reg_param, decision_function_shape=dfs, kernel=kernel)
+                    clf = clf.fit(X_train, Y_train)
+                    predictions = clf.predict(X_valid)
+                    correct = 0
+                    incorrect = 0
+                    for index, prediction in enumerate(predictions):
+                        if prediction == Y_valid[index]:
+                            correct += 1
+                        else:
+                            incorrect += 1
+                    
+                    cur_accuracy = float(correct/(correct+incorrect))
+                    cur_accuracies.append(cur_accuracy)
+                if np.mean(np.array(cur_accuracies)) > cur_best_average_accuracy:
+                    cur_best_average_accuracy = np.mean(np.array(cur_accuracies))
+                    cur_best_dfs = dfs
+                    cur_best_kernel = kernel
+                    cur_best_reg_param = reg_param
+    print(cur_best_average_accuracy)
+    print(cur_best_dfs)
+    print(cur_best_kernel)
+    print(cur_best_reg_param)
+    testing_frame = pre_process_data(pd.read_csv('test.csv').drop(columns=['Name']))
+
+    clf = SVC(C=cur_best_reg_param, decision_function_shape=cur_best_dfs, kernel=cur_best_kernel)
+    clf = clf.fit(X, Y)
+
+    X = testing_frame.to_numpy()
+    #Filling in the missing fare so there's no nan error
+    X[152][6] = 35.6271884892086 
+
+    predictions = clf.predict(X)
+
+    passengers = pd.read_csv('test.csv')['PassengerId']
+    predictions = pd.Series(predictions, name="Survived")
+    final_frame = pd.concat([passengers, predictions], axis=1)
+    final_frame.to_csv("predictions_kernel.csv", index=False)
+    
 
 def center(X):
 	X_means = np.mean(X,axis=1)[:,np.newaxis]
@@ -268,7 +339,8 @@ def plot_data(x_data, y_data, file_name):
 
 if __name__ == "__main__":
     #tree_classify()
-    nn_classify()
+    #nn_classify()
+    kernel_classify()
 
 
 
