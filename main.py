@@ -101,53 +101,43 @@ def nn_classify():
     Y = labels.to_numpy()
 
     #hopefully all of these are valid layer sizes
-    possible_layer_sizes = list(range(80,101))
-    cur_best_layer_1 = None
-    cur_best_layer_2 = None
-    cur_best_layer_3 = None
+    possible_layer_sizes = list(range(200,1000))
+    cur_best_layer_size = None
     cur_best_average_accuracy = -1
 
     kFold=KFold(n_splits=10,random_state=10,shuffle=True)
-    for layer_1_size in possible_layer_sizes:
-        for layer_2_size in possible_layer_sizes:
-            for layer_3_size in possible_layer_sizes:
+    for layer_size in possible_layer_sizes:
+        print(layer_size)
+        cur_accuracies = []
+        for train_index,test_index in kFold.split(X):
 
-                cur_accuracies = []
-                for train_index,test_index in kFold.split(X):
-        
-                    X_train, X_valid, Y_train, Y_valid = X[train_index], X[test_index], Y[train_index], Y[test_index]
+            X_train, X_valid, Y_train, Y_valid = X[train_index], X[test_index], Y[train_index], Y[test_index]
 
-                    clf = MLPClassifier(hidden_layer_sizes=np.asarray([layer_1_size, layer_2_size, layer_3_size]), max_iter=200, early_stopping=True, random_state=10)
-                    clf = clf.fit(X_train, Y_train)
+            clf = MLPClassifier(hidden_layer_sizes=np.asarray([layer_size]))
+            #clf = MLPClassifier(hidden_layer_sizes=np.asarray([layer_size]), max_iter=200, early_stopping=True, random_state=10)
+            clf = clf.fit(X_train, Y_train)
 
-                    predictions = clf.predict(X_valid)
-                    correct = 0
-                    incorrect = 0
-                    for index, prediction in enumerate(predictions):
-                        if prediction == Y_valid[index]:
-                            correct += 1
-                        else:
-                            incorrect += 1
-                    
-                    cur_accuracy = float(correct/(correct+incorrect))
-                    cur_accuracies.append(cur_accuracy)
-                print(np.mean(np.array(cur_accuracies)))
-                print(clf.n_iter_)
-                if np.mean(np.array(cur_accuracies)) > cur_best_average_accuracy:
-                    cur_best_average_accuracy = np.mean(np.array(cur_accuracies))
-                    cur_best_layer_1 = layer_1_size
-                    cur_best_layer_2 = layer_2_size
-                    cur_best_layer_3 = layer_3_size
-                if cur_best_average_accuracy > 0.8:
-                    break
-            if cur_best_average_accuracy > 0.8:
-                    break
-        if cur_best_average_accuracy > 0.8:
-                    break
+            predictions = clf.predict(X_valid)
+            correct = 0
+            incorrect = 0
+            for index, prediction in enumerate(predictions):
+                if prediction == Y_valid[index]:
+                    correct += 1
+                else:
+                    incorrect += 1
+            
+            cur_accuracy = float(correct/(correct+incorrect))
+            cur_accuracies.append(cur_accuracy)
+        #print(np.mean(np.array(cur_accuracies)))
+        #print(clf.n_iter_)
+        if np.mean(np.array(cur_accuracies)) > cur_best_average_accuracy:
+            cur_best_average_accuracy = np.mean(np.array(cur_accuracies))
+            cur_best_layer_size = layer_size
 
+    print("Got to here")
     testing_frame = pre_process_data(pd.read_csv('test.csv').drop(columns=['Name']))
 
-    clf = MLPClassifier(hidden_layer_sizes=np.asarray([cur_best_layer_1, cur_best_layer_2, cur_best_layer_3]))
+    clf = MLPClassifier(hidden_layer_sizes=np.asarray([cur_best_layer_size]))
     clf = clf.fit(X, Y)
 
     X = testing_frame.to_numpy() 
@@ -158,9 +148,7 @@ def nn_classify():
     predictions = pd.Series(predictions, name="Survived")
     final_frame = pd.concat([passengers, predictions], axis=1)
     final_frame.to_csv("predictions_tree.csv", index=False)
-    print(cur_best_layer_1)
-    print(cur_best_layer_2)
-    print(cur_best_layer_3)
+    print(cur_best_layer_size)
     print(cur_best_average_accuracy)
     
 
@@ -281,3 +269,84 @@ def plot_data(x_data, y_data, file_name):
 if __name__ == "__main__":
     #tree_classify()
     nn_classify()
+
+
+
+
+def nn_copy():
+    pandas_frame = pd.read_csv('train.csv')
+    #Assuming that name has no impact on whether person survived or not
+    #Is there even as way to turn names into features? IDK
+    pandas_frame = pandas_frame.drop(columns=['Name'])
+    labels = pandas_frame['Survived']
+    #we can drop survived because we're already separated it into its own column
+    inputs = pandas_frame.drop(columns=['Survived'])
+
+    inputs = pre_process_data(inputs)
+
+    X = inputs.to_numpy()
+    Y = labels.to_numpy()
+
+    #hopefully all of these are valid layer sizes
+    possible_layer_sizes = list(range(80,101))
+    cur_best_layer_1 = None
+    cur_best_layer_2 = None
+    cur_best_layer_3 = None
+    cur_best_average_accuracy = -1
+
+    kFold=KFold(n_splits=10,random_state=10,shuffle=True)
+    for layer_1_size in possible_layer_sizes:
+        for layer_2_size in possible_layer_sizes:
+            for layer_3_size in possible_layer_sizes:
+
+                cur_accuracies = []
+                for train_index,test_index in kFold.split(X):
+        
+                    X_train, X_valid, Y_train, Y_valid = X[train_index], X[test_index], Y[train_index], Y[test_index]
+
+                    clf = MLPClassifier(hidden_layer_sizes=np.asarray([layer_1_size, layer_2_size, layer_3_size]), max_iter=200, early_stopping=True, random_state=10)
+                    clf = clf.fit(X_train, Y_train)
+
+                    predictions = clf.predict(X_valid)
+                    correct = 0
+                    incorrect = 0
+                    for index, prediction in enumerate(predictions):
+                        if prediction == Y_valid[index]:
+                            correct += 1
+                        else:
+                            incorrect += 1
+                    
+                    cur_accuracy = float(correct/(correct+incorrect))
+                    cur_accuracies.append(cur_accuracy)
+                print(np.mean(np.array(cur_accuracies)))
+                print(clf.n_iter_)
+                if np.mean(np.array(cur_accuracies)) > cur_best_average_accuracy:
+                    cur_best_average_accuracy = np.mean(np.array(cur_accuracies))
+                    cur_best_layer_1 = layer_1_size
+                    cur_best_layer_2 = layer_2_size
+                    cur_best_layer_3 = layer_3_size
+                if cur_best_average_accuracy > 0.8:
+                    break
+            if cur_best_average_accuracy > 0.8:
+                    break
+        if cur_best_average_accuracy > 0.8:
+                    break
+
+    testing_frame = pre_process_data(pd.read_csv('test.csv').drop(columns=['Name']))
+
+    clf = MLPClassifier(hidden_layer_sizes=np.asarray([cur_best_layer_1, cur_best_layer_2, cur_best_layer_3]))
+    clf = clf.fit(X, Y)
+
+    X = testing_frame.to_numpy() 
+
+    predictions = clf.predict(X)
+
+    passengers = pd.read_csv('test.csv')['PassengerId']
+    predictions = pd.Series(predictions, name="Survived")
+    final_frame = pd.concat([passengers, predictions], axis=1)
+    final_frame.to_csv("predictions_tree.csv", index=False)
+    print(cur_best_layer_1)
+    print(cur_best_layer_2)
+    print(cur_best_layer_3)
+    print(cur_best_average_accuracy)
+    
