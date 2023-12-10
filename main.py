@@ -113,9 +113,10 @@ def nn_classify():
 
             X_train, X_valid, Y_train, Y_valid = X[train_index], X[test_index], Y[train_index], Y[test_index]
 
-            clf = MLPClassifier(hidden_layer_sizes=np.asarray([layer_size]))
-            #clf = MLPClassifier(hidden_layer_sizes=np.asarray([layer_size]), max_iter=200, early_stopping=True, random_state=10)
+            #clf = MLPClassifier(hidden_layer_sizes=np.asarray([layer_size]))
+            clf = MLPClassifier(hidden_layer_sizes=np.asarray([layer_size]), max_iter=200, early_stopping=True, random_state=10)
             clf = clf.fit(X_train, Y_train)
+            #print(clf.n_iter_)
 
             predictions = clf.predict(X_valid)
             correct = 0
@@ -129,7 +130,6 @@ def nn_classify():
             cur_accuracy = float(correct/(correct+incorrect))
             cur_accuracies.append(cur_accuracy)
         #print(np.mean(np.array(cur_accuracies)))
-        #print(clf.n_iter_)
         if np.mean(np.array(cur_accuracies)) > cur_best_average_accuracy:
             cur_best_average_accuracy = np.mean(np.array(cur_accuracies))
             cur_best_layer_size = layer_size
