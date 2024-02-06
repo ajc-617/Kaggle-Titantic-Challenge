@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import graphviz
 import random
 
-def tree_classify():
+def tree_classify_copy():
     pandas_frame = pd.read_csv('train.csv')
     #Assuming that name has no impact on whether person survived or not
     #Is there even as way to turn names into features? IDK
@@ -101,7 +101,7 @@ def tree_classify():
 
 
 
-def nn_classify():
+def nn_classify_copy():
     pandas_frame = pd.read_csv('train.csv')
     #Assuming that name has no impact on whether person survived or not
     #Is there even as way to turn names into features? IDK
@@ -194,6 +194,19 @@ def nn_classify():
     print(cur_best_average_accuracy)
     
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 #Method used to find SVM using one of the 4 possible kernels of linear, poly, rbf, or sigmoid, either ovo or ovr decision
 #shape, and a regularization parameter, ranging from 1 to 10, which achieves highest k-fold cross validation accuracy
 #on titantic training set
@@ -210,72 +223,14 @@ def kernel_classify():
 
     X = inputs.to_numpy()
     Y = labels.to_numpy()
-    
-    #decision_function_shapes = ["ovo", "ovr"]
-    #kernels = ["linear", "poly", "rbf", "sigmoid"]
 
-    possible_reg_params = list(range(1,10))
-
-    #cur_best_dfs = None
-    #cur_best_kernel = None
-    cur_best_reg_param = None
-    cur_best_average_accuracy = -1
-
-    kFold=KFold(n_splits=10,random_state=10,shuffle=True)
-    # for dfs in decision_function_shapes:
-    #     for kernel in kernels:
-    for reg_param in possible_reg_params:
-        # print(dfs)
-        # print(kernel)
-        print(reg_param)
-    
-        cur_accuracies = []
-        for train_index,test_index in kFold.split(X):
-
-            X_train, X_valid, Y_train, Y_valid = X[train_index], X[test_index], Y[train_index], Y[test_index]
-            #X_train, X_valid, Y_train, Y_valid = train_test_split(X, Y, test_size=0.2)
-            # clf = None
-            # if kernel == "rbf" or kernel == "poly" or kernel == "sigmoid":
-            #     clf = SVC(C=reg_param, decision_function_shape=dfs, kernel=kernel, gamma="auto")
-            # else:
-            #     clf = SVC(C=reg_param, decision_function_shape=dfs, kernel=kernel)
-            clf = LinearSVC(dual=False,C=0.1)
-            clf = clf.fit(X_train, Y_train)
-            predictions = clf.predict(X_valid)
-            correct = 0
-            incorrect = 0
-            for index, prediction in enumerate(predictions):
-                if prediction == Y_valid[index]:
-                    correct += 1
-                else:
-                    incorrect += 1
-            
-            cur_accuracy = float(correct/(correct+incorrect))
-            cur_accuracies.append(cur_accuracy)
-        print(np.mean(np.array(cur_accuracies)))
-        if np.mean(np.array(cur_accuracies)) > cur_best_average_accuracy:
-            cur_best_average_accuracy = np.mean(np.array(cur_accuracies))
-            # cur_best_dfs = dfs
-            # cur_best_kernel = kernel
-            cur_best_reg_param = reg_param
-    print(cur_best_average_accuracy)
-    # print(cur_best_dfs)
-    # print(cur_best_kernel)
-    print(cur_best_reg_param)
 
     testing_frame = pre_process_data(pd.read_csv('test.csv').drop(columns=['Name']))
-
-    print(cur_best_average_accuracy)
-    # print(cur_best_dfs)
-    # print(cur_best_kernel)
-    print(cur_best_reg_param)
-
-    # clf = SVC(C=cur_best_reg_param, decision_function_shape=cur_best_dfs, kernel=cur_best_kernel)
-    clf = LinearSVC(dual=False, C=cur_best_reg_param)
+    clf = LinearSVC(dual=False, C=0.1)
     clf = clf.fit(X, Y)
 
     X = testing_frame.to_numpy()
-    #Filling in the missing fare so there's no nan error
+    #152 passenger in testing set doesn't have a far so just give them the average fare among others in the testing set
     X[152][6] = 35.6271884892086 
 
     predictions = clf.predict(X)
@@ -284,7 +239,89 @@ def kernel_classify():
     predictions = pd.Series(predictions, name="Survived")
     final_frame = pd.concat([passengers, predictions], axis=1)
     final_frame.to_csv("predictions_kernel.csv", index=False)
-    
+
+
+def nn_classify():
+    pandas_frame = pd.read_csv('train.csv')
+    #Assuming that name has no impact on whether person survived or not
+    #Is there even as way to turn names into features? IDK
+    pandas_frame = pandas_frame.drop(columns=['Name'])
+    labels = pandas_frame['Survived']
+    #we can drop survived because we're already separated it into its own column
+    inputs = pandas_frame.drop(columns=['Survived'])
+
+    inputs = pre_process_data(inputs)
+
+    X_copy = inputs.to_numpy()
+
+    #standard normalize inputs
+    X = preprocessing.StandardScaler().fit_transform(X=X_copy)
+    Y = labels.to_numpy()
+
+
+    testing_frame = pre_process_data(pd.read_csv('test.csv').drop(columns=['Name']))
+
+    #Train MLP Classifier on training data using optimal hyperparameters
+    clf = MLPClassifier(hidden_layer_sizes=np.asarray([3,4]), solver="adam", max_iter=1000, random_state=0, batch_size=120, alpha=0.3)
+    clf = clf.fit(X, Y)
+
+    X = testing_frame.to_numpy()
+    #152 passenger in testing set doesn't have a far so just give them the average fare among others in the testing set
+    X[152][6] = 35.6271884892086
+
+    #standard normalize test data inputs
+    X = preprocessing.StandardScaler().fit_transform(X=X)
+
+    #make predictions on testing data
+    predictions = clf.predict(X)
+
+    #write predictions in correct csv format
+    passengers = pd.read_csv('test.csv')['PassengerId']
+    predictions = pd.Series(predictions, name="Survived")
+    final_frame = pd.concat([passengers, predictions], axis=1)
+    final_frame.to_csv("predictions_nn.csv", index=False)
+
+def tree_classify():
+    pandas_frame = pd.read_csv('train.csv')
+    #Assuming that name has no impact on whether person survived or not
+    #Is there even as way to turn names into features? IDK
+    pandas_frame = pandas_frame.drop(columns=['Name'])
+    labels = pandas_frame['Survived']
+    #we can drop survived because we're already separated it into its own column
+    inputs = pandas_frame.drop(columns=['Survived'])
+
+    #preprocess data
+    inputs = pre_process_data(inputs)
+
+    #convert inputs and labels to numpy
+    X_copy = inputs.to_numpy()
+    Y = labels.to_numpy()
+
+    #standard normalize inputs
+    X = preprocessing.StandardScaler().fit_transform(X=X_copy)
+
+    #preprocess the testing data
+    testing_frame = pre_process_data(pd.read_csv('test.csv').drop(columns=['Name']))
+
+    #Train tree classifier to the training data using optimal hyperparameters
+    clf = DecisionTreeClassifier(max_depth=3, min_samples_split=20)
+    clf = clf.fit(X, Y)
+
+    X = testing_frame.to_numpy()
+    #152 passenger in testing set doesn't have a far so just give them the average fare among others in the testing set
+    X[152][6] = 35.6271884892086
+
+    #standard normalize test data inputs
+    X = preprocessing.StandardScaler().fit_transform(X=X)
+
+    #make predictions on testing data
+    predictions = clf.predict(X)
+
+    #write predictions in correct csv format
+    passengers = pd.read_csv('test.csv')['PassengerId']
+    predictions = pd.Series(predictions, name="Survived")
+    final_frame = pd.concat([passengers, predictions], axis=1)
+    final_frame.to_csv("predictions_tree.csv", index=False)
 
 def pre_process_data(inputs):
     #Map female to 0 and male to 1 for the sex (this is essentially one hot encoding)
@@ -360,24 +397,6 @@ def pre_process_data(inputs):
     inputs = inputs.drop(columns=['Cabin'])
     return inputs
     
-def eigenvalues():
-    
-    pandas_frame = pd.read_csv('train.csv')
-    #Assuming that name has no impact on whether person survived or not
-    #Is there even as way to turn names into features? IDK
-    pandas_frame = pandas_frame.drop(columns=['Name'])
-    labels = pandas_frame['Survived']
-    #we can drop survived because we're already separated it into its own column
-    inputs = pandas_frame.drop(columns=['Survived'])
-
-    inputs = pre_process_data(inputs)
-
-    X = inputs.to_numpy()
-    
-    D,V = np.linalg.eigh(np.dot(X.T,X))
-    plot_data(list(range(len(D))), np.flip(D), "eigenvalues")
-    print(np.flip(D))
-    print(V[:,:3].shape)
 
 def plot_data(x_data, y_data, file_name):
     plt.figure()
@@ -386,6 +405,6 @@ def plot_data(x_data, y_data, file_name):
     plt.savefig(f"{file_name}.png")
 
 if __name__ == "__main__":
-    #tree_classify()
-    #nn_classify()
+    tree_classify()
+    nn_classify()
     kernel_classify()
